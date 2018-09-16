@@ -90,7 +90,8 @@ module StripeMock
         data = []
         items.each do |i|
           i[:id] ||= new_id('su_item')
-          params = i.merge(plan: plans[i[:plan].to_s], subscription: subscription_id)
+          plan_id = i[:plan].is_a?(Hash) ? i[:plan][:id] : i[:plan]
+          params = i.merge(plan: plans[plan_id.to_s], subscription: subscription_id)
           data << Data.mock_subscription_item(params)
         end
         data

@@ -170,12 +170,6 @@ module StripeMock
           customer[:default_source] = new_card[:id]
         end
 
-        # expand the plan for addition to the customer object
-        plan_name =
-          params[:plan].is_a?(String) ? params[:plan] : subscription[:plan][:id]
-
-        plan = plans[plan_name]
-
         if params[:plan].present? && params[:items].present?
           raise Stripe::InvalidRequestError.new('Received both items and plan parameters. Please pass in only one.', nil, 400)
         end
@@ -184,12 +178,13 @@ module StripeMock
           items = subscription[:items][:data]
           params[:items].each do |new_item|
             current_item = items.detect { |i| i[:id] == new_item[:id] }
-            if current_item && current_item[:plan][:id] == subscription[:plan][:id]
-              plan_name = new_item[:plan]
-              plan = plans[plan_name]
+            plan_id = new_item[:plan]
+            if plan_id || current_item.nil?
+              assert_existence :plan, plan_id, plans[plan_id]
+              verify_card_present(customer, plans[plan_id], subscription)
             end
             items.delete(current_item) if current_item
-            items << (current_item || {}).merge(new_item)
+            items << (current_item || {}).merge(new_item) unless new_item[:deleted]
           end
           subscription[:items][:data] = mock_subscription_items(subscription[:id], items)
         end
@@ -210,9 +205,20 @@ module StripeMock
           end
         end
 
-        assert_existence :plan, plan_name, plan
+        if subscription[:items][:data].size > 1
+          # When there are multiple items, the subscription's plan attribute should be nil
+          plan = nil
+        elsif subscription[:items][:data].size == 1
+          # Ensure the subscription's plan attribute matches the one defined in items
+          plan = subscription[:items][:data].first[:plan]
+        else
+          plan_name = params[:plan].is_a?(String) ? params[:plan] : subscription[:plan][:id]
+          plan = plans[plan_name]
+          assert_existence :plan, plan_name, plan
+          verify_card_present(customer, plan, subscription)
+        end
+
         params[:plan] = plan if params[:plan]
-        verify_card_present(customer, plan, subscription)
 
         if subscription[:cancel_at_period_end]
           subscription[:cancel_at_period_end] = false
