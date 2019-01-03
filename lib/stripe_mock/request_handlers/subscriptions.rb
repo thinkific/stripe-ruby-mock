@@ -89,6 +89,10 @@ module StripeMock
           end
         end
 
+        if subscription_plans && params[:items].present?
+          raise Stripe::InvalidRequestError.new('Received both items and plan parameters. Please pass in only one.', nil, 400)
+        end
+
         if params[:source]
           new_card = get_card_by_token(params.delete(:source))
           add_card_to_object(:customer, new_card, customer)
@@ -103,6 +107,9 @@ module StripeMock
 
         subscription = Data.mock_subscription({ id: (params[:id] || new_id('su')) })
         subscription = resolve_subscription_changes(subscription, subscription_plans, customer, params)
+
+        items = params[:items] ? params[:items].values : [{ plan: params[:plan] }]
+        subscription[:items][:data] = mock_subscription_items(subscription[:id], items)
 
         # Ensure customer has card to charge if plan has no trial and is not free
         # Note: needs updating for subscriptions with multiple plans
