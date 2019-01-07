@@ -159,12 +159,7 @@ module StripeMock
           customer[:default_source] = new_card[:id]
         end
 
-        subscription_plans = get_subscription_plans_from_params(params)
-
-        # subscription plans are not being updated but load them for the response
-        if subscription_plans.empty?
-          subscription_plans = subscription[:items][:data].map { |item| item[:plan] }
-        end
+        subscription_plans = get_subscription_plans_from_params_for_existing_subscription(params, subscription)
 
         if params[:coupon]
           coupon_id = params[:coupon]
@@ -181,7 +176,7 @@ module StripeMock
             raise Stripe::InvalidRequestError.new("No such coupon: #{coupon_id}", 'coupon', http_status: 400)
           end
         end
-        verify_card_present(customer, subscription_plans.first, subscription)
+        verify_card_present(customer, get_subscription_plans_from_params(params).first, subscription)
 
         if subscription[:cancel_at_period_end]
           subscription[:cancel_at_period_end] = false
@@ -189,7 +184,12 @@ module StripeMock
         end
 
         params[:current_period_start] = subscription[:current_period_start]
-        subscription = resolve_subscription_changes(subscription, subscription_plans, customer, params)
+        if params[:plan]
+          subscription_plans = get_subscription_plans_from_params(params)
+          subscription = resolve_subscription_changes(subscription, subscription_plans, customer, params)
+        else
+          subscription = resolve_subscription_changes_for_udpate(subscription, subscription_plans, customer, params)
+        end
 
         # delete the old subscription, replace with the new subscription
         customer[:subscriptions][:data].reject! { |sub| sub[:id] == subscription[:id] }
@@ -242,6 +242,29 @@ module StripeMock
           assert_existence :plan, plan_id, plans[plan_id]
         end
         plan_ids.map { |plan_id| plans[plan_id] }
+      end
+
+      # Retrieve all existing plans of a subscription and any additional plans
+      # from the params[items] array that need to be added
+      def get_subscription_plans_from_params_for_existing_subscription(params, subscription)
+        # Get plans for existing subscription items first
+        plans_to_resolve = subscription[:items][:data].map { |item| item[:plan] }
+
+        # Add additional plans from params
+        if params[:items]
+          items = params[:items]
+          items = items.values if items.respond_to?(:values)
+          items.each do |item|
+            if item[:plan]
+              plan_id = item[:plan].to_s
+              next if plans_to_resolve.detect { |plan| plan[:id] == plan_id }
+              assert_existence :plan, plan_id, plans[plan_id]
+              plans_to_resolve << plans[plan_id]
+            end
+          end
+        end
+
+        plans_to_resolve
       end
 
       def verify_card_present(customer, plan, subscription, params={})
