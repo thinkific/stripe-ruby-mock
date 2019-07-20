@@ -5,6 +5,7 @@ shared_examples 'Plan API' do
   it "creates a stripe plan" do
     plan = Stripe::Plan.create(
       :id => 'pid_1',
+      :product => {:name => 'The Mock Plan'},
       :name => 'The Mock Plan',
       :amount => 9900,
       :currency => 'USD',
@@ -35,6 +36,7 @@ shared_examples 'Plan API' do
 
   it "creates a stripe plan without specifying ID" do
     plan = Stripe::Plan.create(
+      :product => {:name => 'The Mock Plan'},
       :name => 'The Mock Plan',
       :amount => 9900,
       :currency => 'USD',
@@ -50,6 +52,7 @@ shared_examples 'Plan API' do
   it "stores a created stripe plan in memory" do
     plan = Stripe::Plan.create(
       :id => 'pid_2',
+      :product => {:name => 'The Memory Plan'},
       :name => 'The Memory Plan',
       :amount => 1100,
       :currency => 'USD',
@@ -60,6 +63,7 @@ shared_examples 'Plan API' do
     )
     plan2 = Stripe::Plan.create(
       :id => 'pid_3',
+      :product => {:name => 'The Bonk Plan'},
       :name => 'The Bonk Plan',
       :amount => 7777,
       :currency => 'USD',
@@ -145,7 +149,7 @@ shared_examples 'Plan API' do
     expect {
       Stripe::Plan.create(
         :id => 'pid_1',
-        :name => 'The Mock Plan',
+        :product => {:name => 'The Mock Plan'},
         :amount => 99.99,
         :currency => 'USD',
         :interval => 'month',

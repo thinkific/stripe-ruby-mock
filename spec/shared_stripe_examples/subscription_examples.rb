@@ -630,7 +630,8 @@ shared_examples 'Customer Subscriptions' do
       customer = Stripe::Customer.create(id: 'test_customer_sub', source: gen_card_tk, plan: silver_plan.id)
 
       sub = Stripe::Subscription.retrieve(customer.subscriptions.data.first.id)
-      sub.items = [{ plan: gold_plan.id, quantity: 2 }, { plan: addon_plan.id, quantity: 2 }]
+      sub_item_id = sub.items.data.first.id
+      sub.items = [{ id: sub_item_id, plan: gold_plan.id, quantity: 2 }, { plan: addon_plan.id, quantity: 2 }]
       expect(sub.save).to be_truthy
 
       expect(sub.object).to eq('subscription')
@@ -655,8 +656,9 @@ shared_examples 'Customer Subscriptions' do
       addon2_plan = stripe_helper.create_plan(id: 'addon2')
       customer = Stripe::Customer.create(id: 'test_customer_sub', source: gen_card_tk)
       sub = Stripe::Subscription.create(customer: customer.id, items: [{ plan: silver_plan.id }, { plan: addon1_plan.id }])
-
-      sub.items = [{ plan: gold_plan.id, quantity: 2 }, { plan: addon2_plan.id, quantity: 2 }]
+      sub_item_1_id = sub.items.data.first.id
+      sub_item_2_id = sub.items.data.last.id
+      sub.items = [{ id: sub_item_1_id, plan: gold_plan.id, quantity: 2 }, { id: sub_item_2_id, plan: addon2_plan.id, quantity: 2 }]
       expect(sub.save).to be_truthy
 
       expect(sub.object).to eq('subscription')
@@ -1076,7 +1078,7 @@ shared_examples 'Customer Subscriptions' do
       expect(subscription.items.object).to eq('list')
       expect(subscription.items.data.class).to eq(Array)
       expect(subscription.items.data.count).to eq(1)
-      expect(subscription.items.data.first.id).to eq('test_txn_default')
+      expect(subscription.items.data.first.id).to start_with('test_su_item_')
       expect(subscription.items.data.first.created).to eq(1504716183)
       expect(subscription.items.data.first.object).to eq('subscription_item')
       expect(subscription.items.data.first.plan.amount).to eq(0)
